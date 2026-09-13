@@ -1,4 +1,3 @@
-
 "use client";
 
 /* eslint-disable @typescript-eslint/no-unused-vars */
@@ -31,7 +30,7 @@ import { useBodyScrollLock } from "@/hooks/useBodyScrollLock";
 import { useFocusTrap } from "@/hooks/useFocusTrap";
 
 type Overlay = "tour" | "lightbox" | null;
-type Panel =
+type PanelKind =
   | "share"
   | "guests"
   | "reserve"
@@ -50,7 +49,7 @@ function Header() {
           airbnb
         </div>
 
-        <button className="search-pill" type="button">
+        <button className="search-pill" type="button" aria-label="Search">
           <span>Anywhere</span>
           <i />
           <span>Any week</span>
@@ -89,15 +88,12 @@ function ReservationCard({
   confirmed,
   guests,
 }: {
-  onPanel: (panel: Exclude<Panel, null>) => void;
+  onPanel: (panel: Exclude<PanelKind, null>) => void;
   confirmed: boolean;
   guests: number;
 }) {
   return (
-    <aside
-      className="reservation-card"
-      aria-label="Reserve this stay"
-    >
+    <aside className="reservation-card" aria-label="Reserve this stay">
       <div className="price-line">
         <strong>₹{listing.price.toLocaleString()}</strong>
         <span>night</span>
@@ -138,9 +134,7 @@ function ReservationCard({
         {confirmed ? "Request sent" : "Reserve"}
       </button>
 
-      <p className="fine-print">
-        You won&apos;t be charged yet
-      </p>
+      <p className="fine-print">You won&apos;t be charged yet</p>
 
       <div className="fee-line">
         <span>₹5,680 x 5 nights</span>
@@ -180,9 +174,7 @@ function Gallery({
           key={photo.id}
           type="button"
           aria-label={`Open photo ${index + 1}: ${photo.alt}`}
-          onClick={(event) =>
-            open(index, event.currentTarget)
-          }
+          onClick={(event) => open(index, event.currentTarget)}
         >
           <Image
             src={photo.src}
@@ -200,9 +192,7 @@ function Gallery({
       <button
         className="show-all"
         type="button"
-        onClick={(event) =>
-          tour(event.currentTarget)
-        }
+        onClick={(event) => tour(event.currentTarget)}
       >
         Show all photos
       </button>
@@ -223,12 +213,7 @@ const photoTourCategories = [
     "Comfortable seating · Natural light · Wifi",
     6,
   ],
-  [
-    "full-kitchen",
-    "Full kitchen",
-    "Kitchen · Refrigerator · Cooking basics",
-    4,
-  ],
+  ["full-kitchen", "Full kitchen", "Kitchen · Refrigerator · Cooking basics", 4],
   [
     "bedroom",
     "Bedroom",
@@ -241,24 +226,9 @@ const photoTourCategories = [
     "Hairdryer · Hot water · Shampoo · Shower gel",
     3,
   ],
-  [
-    "gym",
-    "Gym",
-    "Shared fitness area · Exercise equipment",
-    7,
-  ],
-  [
-    "exterior",
-    "Exterior",
-    "Building entrance · Tropical surroundings",
-    5,
-  ],
-  [
-    "pool",
-    "Pool",
-    "Shared pool · Outdoor seating · Sun loungers",
-    2,
-  ],
+  ["gym", "Gym", "Shared fitness area · Exercise equipment", 7],
+  ["exterior", "Exterior", "Building entrance · Tropical surroundings", 5],
+  ["pool", "Pool", "Shared pool · Outdoor seating · Sun loungers", 2],
 ] as const;
 
 function PhotoTourSection({
@@ -266,53 +236,46 @@ function PhotoTourSection({
 }: {
   openLightbox: (index: number) => void;
 }) {
+  // NOTE: All hooks are declared unconditionally, before any early return.
+  // The previous version called useRef/useState/useEffect AFTER an
+  // `if (!isOpen) return null;` guard. On first render (isOpen === false)
+  // those hooks were skipped entirely, but once the "open-photo-tour-section"
+  // event fired and isOpen flipped to true, React would suddenly see more
+  // hooks called than on the previous render and throw
+  // "Rendered more hooks than during the previous render" — crashing the app
+  // the first time a user opened the sticky-nav "Photos" tab.
   const [isOpen, setIsOpen] = useState(false);
+  const tourRef = useRef<HTMLElement>(null);
+  const [activeCategory, setActiveCategory] = useState<string>(
+    photoTourCategories[0][0]
+  );
 
   useEffect(() => {
     const open = () => setIsOpen(true);
 
-    window.addEventListener(
-      "open-photo-tour-section",
-      open
-    );
+    window.addEventListener("open-photo-tour-section", open);
 
     return () => {
-      window.removeEventListener(
-        "open-photo-tour-section",
-        open
-      );
+      window.removeEventListener("open-photo-tour-section", open);
     };
   }, []);
 
   useEffect(() => {
     if (isOpen) {
       requestAnimationFrame(() => {
-        document
-          .getElementById("photos-section")
-          ?.scrollIntoView({
-            behavior: "smooth",
-            block: "start",
-          });
+        document.getElementById("photos-section")?.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
       });
     }
   }, [isOpen]);
 
-  if (!isOpen) return null;
-
-  const tourRef = useRef<HTMLElement>(null);
-
-  const [activeCategory, setActiveCategory] =
-    useState<string>(
-      photoTourCategories[0][0]
-    );
-
   useEffect(() => {
+    if (!isOpen) return;
+
     const sections = photoTourCategories
-      .map(([id]) =>
-        document.getElementById(
-          `photo-category-${id}`
-        )
-      )
+      .map(([id]) => document.getElementById(`photo-category-${id}`))
       .filter(Boolean) as HTMLElement[];
 
     const observer = new IntersectionObserver(
@@ -320,33 +283,25 @@ function PhotoTourSection({
         entries.forEach((entry) => {
           if (entry.isIntersecting) {
             setActiveCategory(
-              entry.target.id.replace(
-                "photo-category-",
-                ""
-              )
+              entry.target.id.replace("photo-category-", "")
             );
           }
         }),
-      {
-        rootMargin:
-          "-18% 0px -65% 0px",
-      }
+      { rootMargin: "-18% 0px -65% 0px" }
     );
 
-    sections.forEach((section) =>
-      observer.observe(section)
-    );
+    sections.forEach((section) => observer.observe(section));
 
     return () => observer.disconnect();
-  }, []);
+  }, [isOpen]);
+
+  if (!isOpen) return null;
 
   const scrollToCategory = (id: string) => {
-    document
-      .getElementById(`photo-category-${id}`)
-      ?.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+    document.getElementById(`photo-category-${id}`)?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   return (
@@ -356,157 +311,93 @@ function PhotoTourSection({
       ref={tourRef}
       aria-labelledby="photo-tour-heading"
     >
-      <h2 id="photo-tour-heading">
-        Photo tour
-      </h2>
+      <h2 id="photo-tour-heading">Photo tour</h2>
 
-      <div
-        className="photo-category-strip"
-        aria-label="Photo tour categories"
-      >
-        {photoTourCategories.map(
-          ([id, title, , photoIndex]) => (
-            <button
-              type="button"
-              key={id}
-              className={
-                activeCategory === id
-                  ? "active"
-                  : ""
-              }
-              onClick={() =>
-                scrollToCategory(id)
-              }
-            >
-              <Image
-                src={
-                  listing.photos[photoIndex].src
-                }
-                alt=""
-                width={150}
-                height={100}
-                unoptimized
-              />
+      <div className="photo-category-strip" aria-label="Photo tour categories">
+        {photoTourCategories.map(([id, title, , photoIndex]) => (
+          <button
+            type="button"
+            key={id}
+            className={activeCategory === id ? "active" : ""}
+            onClick={() => scrollToCategory(id)}
+          >
+            <Image
+              src={listing.photos[photoIndex].src}
+              alt=""
+              width={150}
+              height={100}
+              unoptimized
+            />
 
-              <span>{title}</span>
-            </button>
-          )
-        )}
+            <span>{title}</span>
+          </button>
+        ))}
       </div>
 
       <div className="photo-tour-groups">
-        {photoTourCategories.map(
-          (
-            [
-              id,
-              title,
-              description,
-              photoIndex,
-            ],
-            categoryIndex
-          ) => {
-            const supportOne =
-              (photoIndex + 1) %
-              listing.photos.length;
+        {photoTourCategories.map(([id, title, description, photoIndex]) => {
+          const supportOne = (photoIndex + 1) % listing.photos.length;
+          const supportTwo = (photoIndex + 2) % listing.photos.length;
 
-            const supportTwo =
-              (photoIndex + 2) %
-              listing.photos.length;
+          return (
+            <article
+              className="photo-tour-group"
+              id={`photo-category-${id}`}
+              key={id}
+            >
+              <div className="photo-tour-copy">
+                <h3>{title}</h3>
+                <p>{description}</p>
+              </div>
 
-            return (
-              <article
-                className="photo-tour-group"
-                id={`photo-category-${id}`}
-                key={id}
-              >
-                <div className="photo-tour-copy">
-                  <h3>{title}</h3>
-                  <p>{description}</p>
-                </div>
+              <div className="photo-tour-gallery">
+                <button
+                  type="button"
+                  onClick={() => openLightbox(photoIndex)}
+                  aria-label={`Open ${title} photo`}
+                >
+                  <Image
+                    src={listing.photos[photoIndex].src}
+                    alt={listing.photos[photoIndex].alt}
+                    width={900}
+                    height={620}
+                    unoptimized
+                  />
+                </button>
 
-                <div className="photo-tour-gallery">
+                <div>
                   <button
                     type="button"
-                    onClick={() =>
-                      openLightbox(photoIndex)
-                    }
-                    aria-label={`Open ${title} photo`}
+                    onClick={() => openLightbox(supportOne)}
+                    aria-label={`Open supporting ${title} photo`}
                   >
                     <Image
-                      src={
-                        listing.photos[
-                          photoIndex
-                        ].src
-                      }
-                      alt={
-                        listing.photos[
-                          photoIndex
-                        ].alt
-                      }
-                      width={900}
-                      height={620}
+                      src={listing.photos[supportOne].src}
+                      alt={listing.photos[supportOne].alt}
+                      width={440}
+                      height={300}
                       unoptimized
                     />
                   </button>
 
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openLightbox(
-                          supportOne
-                        )
-                      }
-                      aria-label={`Open supporting ${title} photo`}
-                    >
-                      <Image
-                        src={
-                          listing.photos[
-                            supportOne
-                          ].src
-                        }
-                        alt={
-                          listing.photos[
-                            supportOne
-                          ].alt
-                        }
-                        width={440}
-                        height={300}
-                        unoptimized
-                      />
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() =>
-                        openLightbox(
-                          supportTwo
-                        )
-                      }
-                      aria-label={`Open second supporting ${title} photo`}
-                    >
-                      <Image
-                        src={
-                          listing.photos[
-                            supportTwo
-                          ].src
-                        }
-                        alt={
-                          listing.photos[
-                            supportTwo
-                          ].alt
-                        }
-                        width={440}
-                        height={300}
-                        unoptimized
-                      />
-                    </button>
-                  </div>
+                  <button
+                    type="button"
+                    onClick={() => openLightbox(supportTwo)}
+                    aria-label={`Open second supporting ${title} photo`}
+                  >
+                    <Image
+                      src={listing.photos[supportTwo].src}
+                      alt={listing.photos[supportTwo].alt}
+                      width={440}
+                      height={300}
+                      unoptimized
+                    />
+                  </button>
                 </div>
-              </article>
-            );
-          }
-        )}
+              </div>
+            </article>
+          );
+        })}
       </div>
     </section>
   );
@@ -515,41 +406,25 @@ function PhotoTourSection({
 function Details({
   onPanel,
 }: {
-  onPanel: (
-    panel: Exclude<Panel, null>
-  ) => void;
+  onPanel: (panel: Exclude<PanelKind, null>) => void;
 }) {
-  const [expanded, setExpanded] =
-    useState(false);
-
-  const [amenities, setAmenities] =
-    useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [amenities, setAmenities] = useState(false);
 
   return (
     <div className="detail-sections">
       <section className="facts-section">
-        <h2>
-          {listing.propertyType} in Candolim,
-          India
-        </h2>
+        <h2>{listing.propertyType} in Candolim, India</h2>
 
         <p>
-          {listing.guests} guests ·{" "}
-          {listing.bedrooms} bedroom ·{" "}
-          {listing.beds} bed ·{" "}
-          {listing.baths} bathroom
+          {listing.guests} guests · {listing.bedrooms} bedroom ·{" "}
+          {listing.beds} bed · {listing.baths} bathroom
         </p>
 
         <div className="guest-favourite">
-          <Star
-            size={17}
-            fill="currentColor"
-          />
+          <Star size={17} fill="currentColor" />
           <strong>Guest favourite</strong>
-          <span>
-            One of the most loved homes on
-            Airbnb
-          </span>
+          <span>One of the most loved homes on Airbnb</span>
         </div>
       </section>
 
@@ -574,11 +449,8 @@ function Details({
 
       <section className="copy-section">
         <p className="translation-note">
-          Some info has been automatically
-          translated.{" "}
-          <button type="button">
-            Show original
-          </button>
+          Some info has been automatically translated.{" "}
+          <button type="button">Show original</button>
         </p>
 
         <p>
@@ -590,14 +462,9 @@ function Details({
         <button
           className="text-button"
           type="button"
-          onClick={() =>
-            setExpanded(!expanded)
-          }
+          onClick={() => setExpanded(!expanded)}
         >
-          {expanded
-            ? "Show less"
-            : "Show more"}{" "}
-          →
+          {expanded ? "Show less" : "Show more"} →
         </button>
       </section>
 
@@ -622,41 +489,28 @@ function Details({
         </div>
       </section>
 
-      <section
-        className="amenity-section"
-        id="amenities"
-      >
+      <section className="amenity-section" id="amenities">
         <h2>What this place offers</h2>
 
         <div className="amenity-grid">
-          {(amenities
-            ? listing.amenities
-            : listing.amenities.slice(0, 6)
-          ).map((item, index) => (
-            <div key={item}>
-              {index % 2 ? (
-                <Wifi />
-              ) : (
-                <BedDouble />
-              )}
-
-              <span>{item}</span>
-            </div>
-          ))}
+          {(amenities ? listing.amenities : listing.amenities.slice(0, 6)).map(
+            (item, index) => (
+              <div key={item}>
+                {index % 2 ? <Wifi /> : <BedDouble />}
+                <span>{item}</span>
+              </div>
+            )
+          )}
         </div>
 
         <button
           className="outline-button"
           type="button"
           onClick={() =>
-            amenities
-              ? setAmenities(false)
-              : onPanel("amenities")
+            amenities ? setAmenities(false) : onPanel("amenities")
           }
         >
-          {amenities
-            ? "Show fewer amenities"
-            : "Show all 50 amenities"}
+          {amenities ? "Show fewer amenities" : "Show all 50 amenities"}
         </button>
       </section>
 
@@ -664,10 +518,7 @@ function Details({
         <Calendar />
       </section>
 
-      <section
-        className="location-section"
-        id="location"
-      >
+      <section className="location-section" id="location">
         <h2>Where you&apos;ll be</h2>
 
         <div className="map-placeholder">
@@ -676,54 +527,39 @@ function Details({
         </div>
       </section>
 
-      <section
-        className="reviews-section"
-        id="reviews"
-      >
+      <section className="reviews-section" id="reviews">
         <div className="reviews-heading">
           <div>
             <h2>
-              <Star
-                size={21}
-                fill="currentColor"
-              />{" "}
-              {listing.rating}
+              <Star size={21} fill="currentColor" /> {listing.rating}
             </h2>
 
             <p>
-              Guest favourite ·{" "}
-              {listing.reviews} reviews
+              Guest favourite · {listing.reviews} reviews
             </p>
           </div>
 
           <button
             className="outline-button"
             type="button"
-            onClick={() =>
-              onPanel("reviews")
-            }
+            onClick={() => onPanel("reviews")}
           >
             Show all {listing.reviews} reviews
           </button>
         </div>
 
         <div className="review-cards">
-          {listing.reviewsList.map(
-            (review) => (
-              <article key={review.name}>
-                <strong>
-                  {review.name} · ★{" "}
-                  {review.rating}
-                </strong>
+          {listing.reviewsList.map((review) => (
+            <article key={review.name}>
+              <strong>
+                {review.name} · ★ {review.rating}
+              </strong>
 
-                <small>
-                  {review.date}
-                </small>
+              <small>{review.date}</small>
 
-                <p>{review.text}</p>
-              </article>
-            )
-          )}
+              <p>{review.text}</p>
+            </article>
+          ))}
         </div>
       </section>
 
@@ -744,14 +580,10 @@ function Details({
               <strong>{stay.name}</strong>
 
               <span>
-                {stay.location} · ★{" "}
-                {stay.rating}
+                {stay.location} · ★ {stay.rating}
               </span>
 
-              <p>
-                ₹{stay.price.toLocaleString()}{" "}
-                night
-              </p>
+              <p>₹{stay.price.toLocaleString()} night</p>
             </article>
           ))}
         </div>
@@ -760,57 +592,52 @@ function Details({
   );
 }
 
+const monthFormatter = new Intl.DateTimeFormat("en-US", {
+  month: "long",
+  year: "numeric",
+});
+
 function Calendar() {
-  const [month, setMonth] = useState(9);
-  const [start, setStart] =
-    useState<number | null>(null);
-  const [end, setEnd] =
-    useState<number | null>(null);
+  const [month, setMonth] = useState(9); // 0-indexed: 9 = October
+  const [start, setStart] = useState<number | null>(null);
+  const [end, setEnd] = useState<number | null>(null);
 
-  const days = new Date(
-    2026,
-    month + 1,
-    0
-  ).getDate();
+  // FIX: selecting a day and then navigating to a different month used to
+  // leave the old day number highlighted (e.g. picking the 15th in October
+  // still showed the 15th as "selected" after moving to November). Clear the
+  // selection whenever the visible month changes.
+  useEffect(() => {
+    setStart(null);
+    setEnd(null);
+  }, [month]);
 
-  const first = new Date(
-    2026,
-    month,
-    1
-  ).getDay();
+  const days = new Date(2026, month + 1, 0).getDate();
+  const first = new Date(2026, month, 1).getDay();
 
-  const nights =
-    start &&
-    end &&
-    end > start
-      ? end - start
-      : 0;
+  const nights = start && end && end > start ? end - start : 0;
+
+  // FIX: the month heading was hardcoded to "October 2026" regardless of
+  // which month was selected, so the prev/next buttons silently did nothing
+  // visible. This now reflects the `month` state.
+  const monthLabel = monthFormatter.format(new Date(2026, month, 1));
 
   return (
     <div className="calendar">
       <div className="calendar-heading">
         <div>
           <h2>
-            {nights
-              ? `${nights} nights in Candolim`
-              : "Select your dates"}
+            {nights ? `${nights} nights in Candolim` : "Select your dates"}
           </h2>
 
-          <p>
-            Add your travel dates for exact
-            pricing
-          </p>
+          <p>Add your travel dates for exact pricing</p>
         </div>
 
         <div>
           <button
             type="button"
             aria-label="Previous month"
-            onClick={() =>
-              setMonth(
-                Math.max(0, month - 1)
-              )
-            }
+            disabled={month === 0}
+            onClick={() => setMonth((current) => Math.max(0, current - 1))}
           >
             <ChevronLeft />
           </button>
@@ -818,63 +645,43 @@ function Calendar() {
           <button
             type="button"
             aria-label="Next month"
-            onClick={() =>
-              setMonth(
-                Math.min(11, month + 1)
-              )
-            }
+            disabled={month === 11}
+            onClick={() => setMonth((current) => Math.min(11, current + 1))}
           >
             <ChevronRight />
           </button>
         </div>
       </div>
 
-      <h3>October 2026</h3>
+      <h3>{monthLabel}</h3>
 
       <div className="calendar-days">
-        {Array.from(
-          { length: first },
-          (_, index) => (
-            <span
-              key={`blank-${index}`}
-            />
-          )
-        )}
+        {Array.from({ length: first }, (_, index) => (
+          <span key={`blank-${index}`} />
+        ))}
 
-        {Array.from(
-          { length: days },
-          (_, index) => {
-            const day = index + 1;
+        {Array.from({ length: days }, (_, index) => {
+          const day = index + 1;
 
-            return (
-              <button
-                key={day}
-                type="button"
-                className={`${day === start ||
-                  day === end
-                  ? "selected"
-                  : ""
-                  } ${start &&
-                    end &&
-                    day > start &&
-                    day < end
-                    ? "between"
-                    : ""
-                  }`}
-                onClick={() =>
-                  !start || end
-                    ? (setStart(day),
-                      setEnd(null))
-                    : day > start
-                      ? setEnd(day)
-                      : null
-                }
-              >
-                {day}
-              </button>
-            );
-          }
-        )}
+          return (
+            <button
+              key={day}
+              type="button"
+              className={`${
+                day === start || day === end ? "selected" : ""
+              } ${start && end && day > start && day < end ? "between" : ""}`}
+              onClick={() =>
+                !start || end
+                  ? (setStart(day), setEnd(null))
+                  : day > start
+                    ? setEnd(day)
+                    : null
+              }
+            >
+              {day}
+            </button>
+          );
+        })}
       </div>
 
       {(start || end) && (
@@ -896,68 +703,42 @@ function Calendar() {
 function LowerSections({
   onPanel,
 }: {
-  onPanel: (
-    panel: Exclude<Panel, null>
-  ) => void;
+  onPanel: (panel: Exclude<PanelKind, null>) => void;
 }) {
-  const [
-    neighbourhoodExpanded,
-    setNeighbourhoodExpanded,
-  ] = useState(false);
+  const [neighbourhoodExpanded, setNeighbourhoodExpanded] = useState(false);
+  const [nearbyPage, setNearbyPage] = useState(0);
+  const [hostMessage, setHostMessage] = useState(false);
 
-  const [nearbyPage, setNearbyPage] =
-    useState(0);
-
-  const [hostMessage, setHostMessage] =
-    useState(false);
-
-  const visibleNearby =
-    listing.nearby.slice(
-      nearbyPage * 2,
-      nearbyPage * 2 + 2
-    );
+  const visibleNearby = listing.nearby.slice(
+    nearbyPage * 2,
+    nearbyPage * 2 + 2
+  );
 
   return (
     <>
       <section className="neighbourhood-section">
-        <p>
-          Exact location will be provided
-          after booking.
-        </p>
+        <p>Exact location will be provided after booking.</p>
 
-        <h2>
-          Neighbourhood highlights
-        </h2>
+        <h2>Neighbourhood highlights</h2>
 
         <p>
-          Located in the heart of Candolim,
-          Amor de Goa offers a peaceful stay
-          with easy access to beaches, cafés,
-          and popular attractions.
+          Located in the heart of Candolim, Amor de Goa offers a peaceful stay
+          with easy access to beaches, cafés, and popular attractions.
         </p>
 
         {neighbourhoodExpanded && (
           <p>
-            Spend the morning at Candolim
-            beach, explore nearby cafés, or
-            head into central Goa for an evening
-            of food and music.
+            Spend the morning at Candolim beach, explore nearby cafés, or head
+            into central Goa for an evening of food and music.
           </p>
         )}
 
         <button
           className="text-button"
           type="button"
-          onClick={() =>
-            setNeighbourhoodExpanded(
-              !neighbourhoodExpanded
-            )
-          }
+          onClick={() => setNeighbourhoodExpanded(!neighbourhoodExpanded)}
         >
-          {neighbourhoodExpanded
-            ? "Show less"
-            : "Show more"}{" "}
-          →
+          {neighbourhoodExpanded ? "Show less" : "Show more"} →
         </button>
       </section>
 
@@ -966,18 +747,13 @@ function LowerSections({
 
         <div className="host-layout">
           <div className="host-card">
-            <div className="host-avatar">
-              M
-            </div>
+            <div className="host-avatar">M</div>
 
             <strong>{listing.host}</strong>
 
             <span>Host</span>
 
-            <span>
-              1,463 Reviews · 4.68 ★ · 2 Years
-              hosting
-            </span>
+            <span>1,463 Reviews · 4.68 ★ · 2 Years hosting</span>
           </div>
 
           <div>
@@ -994,9 +770,7 @@ function LowerSections({
                 "Shruti",
                 "Amisha",
               ].map((name) => (
-                <span key={name}>
-                  {name}
-                </span>
+                <span key={name}>{name}</span>
               ))}
             </div>
           </div>
@@ -1009,30 +783,24 @@ function LowerSections({
         <p>Response rate: 100%</p>
         <p>Responds within an hour</p>
         <p>Born in the 80s</p>
-        <p>
-          Where I went to school: NICMAR GOA
-        </p>
+        <p>Where I went to school: NICMAR GOA</p>
 
         <button
           className="outline-button"
           type="button"
-          onClick={() =>
-            setHostMessage(!hostMessage)
-          }
+          onClick={() => setHostMessage(!hostMessage)}
         >
           Message host
         </button>
 
         {hostMessage && (
           <p className="panel-success">
-            Message panel ready. We&apos;ll
-            connect you with {listing.host}.
+            Message panel ready. We&apos;ll connect you with {listing.host}.
           </p>
         )}
 
         <p className="payment-note">
-          To help protect your payment, always
-          use Airbnb to send money and
+          To help protect your payment, always use Airbnb to send money and
           communicate with hosts.
         </p>
       </section>
@@ -1043,20 +811,15 @@ function LowerSections({
         <div className="things-grid">
           <details>
             <summary>
-              Cancellation policy{" "}
-              <ChevronDown />
+              Cancellation policy <ChevronDown />
             </summary>
 
             <p>
-              Free cancellation before 17
-              October. Cancel before check-in on
+              Free cancellation before 17 October. Cancel before check-in on
               18 October for a partial refund.
             </p>
 
-            <button
-              type="button"
-              className="text-button"
-            >
+            <button type="button" className="text-button">
               Learn more
             </button>
           </details>
@@ -1067,35 +830,26 @@ function LowerSections({
             </summary>
 
             <p>
-              Check-in after 2:00 pm · Checkout
-              before 11:00 am · 3 guests maximum
+              Check-in after 2:00 pm · Checkout before 11:00 am · 3 guests
+              maximum
             </p>
 
-            <button
-              type="button"
-              className="text-button"
-            >
+            <button type="button" className="text-button">
               Learn more
             </button>
           </details>
 
           <details>
             <summary>
-              Safety & property{" "}
-              <ChevronDown />
+              Safety &amp; property <ChevronDown />
             </summary>
 
             <p>
-              Carbon monoxide alarm not reported
-              · Smoke alarm not reported ·
-              Exterior security cameras on
-              property
+              Carbon monoxide alarm not reported · Smoke alarm not reported ·
+              Exterior security cameras on property
             </p>
 
-            <button
-              type="button"
-              className="text-button"
-            >
+            <button type="button" className="text-button">
               Learn more
             </button>
           </details>
@@ -1111,34 +865,18 @@ function LowerSections({
               type="button"
               aria-label="Previous nearby stays"
               disabled={nearbyPage === 0}
-              onClick={() =>
-                setNearbyPage(
-                  Math.max(
-                    0,
-                    nearbyPage - 1
-                  )
-                )
-              }
+              onClick={() => setNearbyPage(Math.max(0, nearbyPage - 1))}
             >
               <ChevronLeft />
             </button>
 
-            <span>
-              {nearbyPage + 1} / 2
-            </span>
+            <span>{nearbyPage + 1} / 2</span>
 
             <button
               type="button"
               aria-label="Next nearby stays"
               disabled={nearbyPage === 1}
-              onClick={() =>
-                setNearbyPage(
-                  Math.min(
-                    1,
-                    nearbyPage + 1
-                  )
-                )
-              }
+              onClick={() => setNearbyPage(Math.min(1, nearbyPage + 1))}
             >
               <ChevronRight />
             </button>
@@ -1159,14 +897,10 @@ function LowerSections({
               <strong>{stay.name}</strong>
 
               <span>
-                {stay.location} · ★{" "}
-                {stay.rating}
+                {stay.location} · ★ {stay.rating}
               </span>
 
-              <p>
-                ₹{stay.price.toLocaleString()}{" "}
-                night
-              </p>
+              <p>₹{stay.price.toLocaleString()} night</p>
             </article>
           ))}
         </div>
@@ -1179,13 +913,10 @@ function StickyNav({
   onPanel,
   onPhotos,
 }: {
-  onPanel: (
-    panel: Exclude<Panel, null>
-  ) => void;
+  onPanel: (panel: Exclude<PanelKind, null>) => void;
   onPhotos: () => void;
 }) {
-  const [active, setActive] =
-    useState("photos");
+  const [active, setActive] = useState("photos-section");
 
   useEffect(() => {
     const ids = [
@@ -1195,31 +926,25 @@ function StickyNav({
       "location-section",
     ];
 
-    const observer =
-      new IntersectionObserver(
-        (entries) =>
-          entries.forEach((entry) => {
-            if (entry.isIntersecting) {
-              setActive(entry.target.id);
-            }
-          }),
-        {
-          rootMargin:
-            "-18% 0px -65% 0px",
-        }
-      );
+    const observer = new IntersectionObserver(
+      (entries) =>
+        entries.forEach((entry) => {
+          if (entry.isIntersecting) {
+            setActive(entry.target.id);
+          }
+        }),
+      { rootMargin: "-18% 0px -65% 0px" }
+    );
 
     ids.forEach((id) => {
-      const section =
-        document.getElementById(id);
+      const section = document.getElementById(id);
 
       if (section) {
         observer.observe(section);
       }
     });
 
-    return () =>
-      observer.disconnect();
+    return () => observer.disconnect();
   }, []);
 
   return (
@@ -1232,11 +957,7 @@ function StickyNav({
           ["Location", "location-section"],
         ].map(([label, id]) => (
           <a
-            className={
-              active === id
-                ? "active"
-                : ""
-            }
+            className={active === id ? "active" : ""}
             href={`#${id}`}
             key={id}
             onClick={
@@ -1254,21 +975,11 @@ function StickyNav({
       </div>
 
       <div className="sticky-summary">
-        <strong>
-          ₹{listing.price.toLocaleString()}
-        </strong>
+        <strong>₹{listing.price.toLocaleString()}</strong>
 
-        <span>
-          {" "}
-          night · ★ {listing.rating}
-        </span>
+        <span> night · ★ {listing.rating}</span>
 
-        <button
-          type="button"
-          onClick={() =>
-            onPanel("reserve")
-          }
-        >
+        <button type="button" onClick={() => onPanel("reserve")}>
           Reserve
         </button>
       </div>
@@ -1276,44 +987,38 @@ function StickyNav({
   );
 }
 
-function Panel({
+// Renamed from `Panel` to `ActionPanel` to avoid sharing a name with the
+// `PanelKind` type. TypeScript's separate type/value namespaces meant the
+// original code technically compiled, but it made every reference to
+// `Panel` ambiguous to a human reader and one refactor away from a real bug.
+function ActionPanel({
   panel,
   close,
+  guests,
   setGuests,
   onReserve,
 }: {
-  panel: Exclude<Panel, null>;
+  panel: Exclude<PanelKind, null>;
   close: () => void;
+  guests: number;
   setGuests: (count: number) => void;
   onReserve: () => void;
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
-  const [count, setCount] =
-    useState(1);
-
   useFocusTrap(true, ref);
   useBodyScrollLock(true);
 
   useEffect(() => {
-    const onKey = (
-      event: KeyboardEvent
-    ) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         close();
       }
     };
 
-    document.addEventListener(
-      "keydown",
-      onKey
-    );
+    document.addEventListener("keydown", onKey);
 
-    return () =>
-      document.removeEventListener(
-        "keydown",
-        onKey
-      );
+    return () => document.removeEventListener("keydown", onKey);
   }, [close]);
 
   const title =
@@ -1345,50 +1050,36 @@ function Panel({
           <X />
         </button>
 
-        <h2 id="panel-title">
-          {title}
-        </h2>
+        <h2 id="panel-title">{title}</h2>
 
         {panel === "guests" && (
           <>
+            {/* FIX: this used to hold its own local `count` state that
+                always reset to 1 every time the panel was reopened, so a
+                previously chosen guest count was lost. It now reads and
+                writes the shared `guests` state directly. */}
             <div className="stepper">
               <button
                 type="button"
                 aria-label="Remove guest"
-                disabled={count === 1}
-                onClick={() => {
-                  const next =
-                    count - 1;
-
-                  setCount(next);
-                  setGuests(next);
-                }}
+                disabled={guests === 1}
+                onClick={() => setGuests(guests - 1)}
               >
                 −
               </button>
 
-              <strong>{count}</strong>
+              <strong>{guests}</strong>
 
               <button
                 type="button"
                 aria-label="Add guest"
-                onClick={() => {
-                  const next =
-                    count + 1;
-
-                  setCount(next);
-                  setGuests(next);
-                }}
+                onClick={() => setGuests(guests + 1)}
               >
                 +
               </button>
             </div>
 
-            <button
-              className="panel-primary"
-              type="button"
-              onClick={close}
-            >
+            <button className="panel-primary" type="button" onClick={close}>
               Done
             </button>
           </>
@@ -1397,9 +1088,8 @@ function Panel({
         {panel === "reserve" && (
           <>
             <p>
-              Your request is ready for
-              review. This demo does not
-              process payment.
+              Your request is ready for review. This demo does not process
+              payment.
             </p>
 
             <button
@@ -1417,53 +1107,33 @@ function Panel({
 
         {panel === "amenities" && (
           <div className="panel-options">
-            {listing.amenities.map(
-              (item) => (
-                <button
-                  type="button"
-                  key={item}
-                  onClick={close}
-                >
-                  {item}
-                </button>
-              )
-            )}
+            {listing.amenities.map((item) => (
+              <button type="button" key={item} onClick={close}>
+                {item}
+              </button>
+            ))}
           </div>
         )}
 
         {panel === "reviews" && (
           <div className="panel-options">
-            {listing.reviewsList.map(
-              (review) => (
-                <article
-                  key={review.name}
-                >
-                  <strong>
-                    {review.name} · ★{" "}
-                    {review.rating}
-                  </strong>
+            {listing.reviewsList.map((review) => (
+              <article key={review.name}>
+                <strong>
+                  {review.name} · ★ {review.rating}
+                </strong>
 
-                  <p>
-                    {review.text}
-                  </p>
-                </article>
-              )
-            )}
+                <p>{review.text}</p>
+              </article>
+            ))}
           </div>
         )}
 
         {panel === "share" && (
           <>
-            <p>
-              Share this listing with
-              friends and family.
-            </p>
+            <p>Share this listing with friends and family.</p>
 
-            <button
-              className="panel-primary"
-              type="button"
-              onClick={close}
-            >
+            <button className="panel-primary" type="button" onClick={close}>
               Copy link
             </button>
           </>
@@ -1480,75 +1150,39 @@ function GalleryDialog({
   selected,
   setSelected,
 }: {
-  overlay: Exclude<
-    Overlay,
-    null
-  >;
+  overlay: Exclude<Overlay, null>;
   close: () => void;
-  openLightbox: (
-    index: number,
-    fromTour?: boolean
-  ) => void;
+  openLightbox: (index: number, fromTour?: boolean) => void;
   selected: number;
-  setSelected: (
-    value:
-      | number
-      | ((current: number) => number)
-  ) => void;
+  setSelected: (value: number | ((current: number) => number)) => void;
 }) {
-  const ref =
-    useRef<HTMLDivElement>(null);
+  const ref = useRef<HTMLDivElement>(null);
 
   useFocusTrap(true, ref);
   useBodyScrollLock(true);
 
   useEffect(() => {
-    const onKey = (
-      event: KeyboardEvent
-    ) => {
+    const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") {
         close();
       }
 
-      if (
-        overlay === "lightbox" &&
-        event.key === "ArrowRight"
-      ) {
-        setSelected(
-          (current) =>
-            (current + 1) %
-            listing.photos.length
-        );
+      if (overlay === "lightbox" && event.key === "ArrowRight") {
+        setSelected((current) => (current + 1) % listing.photos.length);
       }
 
-      if (
-        overlay === "lightbox" &&
-        event.key === "ArrowLeft"
-      ) {
+      if (overlay === "lightbox" && event.key === "ArrowLeft") {
         setSelected(
           (current) =>
-            (current - 1 +
-              listing.photos.length) %
-            listing.photos.length
+            (current - 1 + listing.photos.length) % listing.photos.length
         );
       }
     };
 
-    document.addEventListener(
-      "keydown",
-      onKey
-    );
+    document.addEventListener("keydown", onKey);
 
-    return () =>
-      document.removeEventListener(
-        "keydown",
-        onKey
-      );
-  }, [
-    close,
-    overlay,
-    setSelected,
-  ]);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [close, overlay, setSelected]);
 
   if (overlay === "tour") {
     return (
@@ -1572,37 +1206,29 @@ function GalleryDialog({
           <h2>Photo tour</h2>
 
           <div className="tour-grid">
-            {listing.photos.map(
-              (photo, index) => (
-                <button
-                  type="button"
-                  key={photo.id}
-                  onClick={() =>
-                    openLightbox(
-                      index,
-                      true
-                    )
-                  }
-                  aria-label={`View ${photo.alt}`}
-                >
-                  <Image
-                    src={photo.src}
-                    alt={photo.alt}
-                    width={900}
-                    height={600}
-                    unoptimized
-                  />
-                </button>
-              )
-            )}
+            {listing.photos.map((photo, index) => (
+              <button
+                type="button"
+                key={photo.id}
+                onClick={() => openLightbox(index, true)}
+                aria-label={`View ${photo.alt}`}
+              >
+                <Image
+                  src={photo.src}
+                  alt={photo.alt}
+                  width={900}
+                  height={600}
+                  unoptimized
+                />
+              </button>
+            ))}
           </div>
         </div>
       </div>
     );
   }
 
-  const photo =
-    listing.photos[selected];
+  const photo = listing.photos[selected];
 
   return (
     <div
@@ -1622,8 +1248,7 @@ function GalleryDialog({
       </button>
 
       <span className="lightbox-count">
-        {selected + 1} /{" "}
-        {listing.photos.length}
+        {selected + 1} / {listing.photos.length}
       </span>
 
       <button
@@ -1633,10 +1258,7 @@ function GalleryDialog({
         onClick={() =>
           setSelected(
             (current) =>
-              (current -
-                1 +
-                listing.photos.length) %
-              listing.photos.length
+              (current - 1 + listing.photos.length) % listing.photos.length
           )
         }
       >
@@ -1657,11 +1279,7 @@ function GalleryDialog({
         type="button"
         aria-label="Next photo"
         onClick={() =>
-          setSelected(
-            (current) =>
-              (current + 1) %
-              listing.photos.length
-          )
+          setSelected((current) => (current + 1) % listing.photos.length)
         }
       >
         <ArrowRight />
@@ -1671,33 +1289,17 @@ function GalleryDialog({
 }
 
 export default function ListingExperience() {
-  const [overlay, setOverlay] =
-    useState<Overlay>(null);
+  const [overlay, setOverlay] = useState<Overlay>(null);
+  const [panel, setPanel] = useState<PanelKind>(null);
+  const [selected, setSelected] = useState(0);
+  const [guests, setGuests] = useState(1);
+  const [confirmed, setConfirmed] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [sticky, setSticky] = useState(false);
 
-  const [panel, setPanel] =
-    useState<Panel>(null);
+  const opener = useRef<HTMLElement | null>(null);
 
-  const [selected, setSelected] =
-    useState(0);
-
-  const [guests, setGuests] =
-    useState(1);
-
-  const [confirmed, setConfirmed] =
-    useState(false);
-
-  const [saved, setSaved] =
-    useState(false);
-
-  const [sticky, setSticky] =
-    useState(false);
-
-  const opener =
-    useRef<HTMLElement | null>(null);
-
-  const openPanel = (
-    next: Exclude<Panel, null>
-  ) => {
+  const openPanel = (next: Exclude<PanelKind, null>) => {
     setPanel(next);
   };
 
@@ -1710,90 +1312,43 @@ export default function ListingExperience() {
       setSticky(window.scrollY > 460);
     };
 
-    window.addEventListener(
-      "scroll",
-      onScroll,
-      { passive: true }
-    );
+    window.addEventListener("scroll", onScroll, { passive: true });
 
-    const reviews =
-      document.querySelector(
-        ".reviews-section"
-      );
+    const reviews = document.querySelector(".reviews-section");
+    const location = document.querySelector(".location-section");
 
-    const location =
-      document.querySelector(
-        ".location-section"
-      );
+    reviews?.setAttribute("id", "reviews-section");
+    location?.setAttribute("id", "location-section");
 
-    reviews?.setAttribute(
-      "id",
-      "reviews-section"
-    );
-
-    location?.setAttribute(
-      "id",
-      "location-section"
-    );
-
-    return () =>
-      window.removeEventListener(
-        "scroll",
-        onScroll
-      );
+    return () => window.removeEventListener("scroll", onScroll);
   }, []);
 
-  const openTour = (
-    element: HTMLElement
-  ) => {
+  const openTour = (element: HTMLElement) => {
     opener.current = element;
     setOverlay("tour");
   };
 
-  const openLightbox = (
-    index: number,
-    fromTour = false
-  ) => {
+  const openLightbox = (index: number, fromTour = false) => {
     if (!fromTour) {
-      opener.current =
-        document.activeElement as HTMLElement;
+      opener.current = document.activeElement as HTMLElement;
     }
 
     setSelected(index);
     setOverlay("lightbox");
   };
 
-  /*
-   * FIX:
-   * StickyNav requires an onPhotos callback.
-   * This function opens the Photo Tour section
-   * when the sticky "Photos" tab is clicked.
-   */
   const openPhotos = () => {
-    const photosSection =
-      document.getElementById(
-        "photos-section"
-      );
+    const photosSection = document.getElementById("photos-section");
 
     if (photosSection) {
-      photosSection.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
+      photosSection.scrollIntoView({ behavior: "smooth", block: "start" });
     } else {
       document
         .getElementById("photos")
-        ?.scrollIntoView({
-          behavior: "smooth",
-          block: "start",
-        });
+        ?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
 
-    window.dispatchEvent(
-      new Event(
-        "open-photo-tour-section"
-      )
-    );
+    window.dispatchEvent(new Event("open-photo-tour-section"));
   };
 
   const closeOverlay = () => {
@@ -1808,12 +1363,7 @@ export default function ListingExperience() {
     <>
       <Header />
 
-      {sticky && (
-        <StickyNav
-          onPanel={openPanel}
-          onPhotos={openPhotos}
-        />
-      )}
+      {sticky && <StickyNav onPanel={openPanel} onPhotos={openPhotos} />}
 
       <main className="page-shell">
         <div className="listing-heading">
@@ -1821,69 +1371,38 @@ export default function ListingExperience() {
             <h1>{listing.title}</h1>
 
             <div className="subline">
-              <MapPin size={15} />{" "}
-              {listing.propertyType} in{" "}
-              {listing.location} ·{" "}
-              <Star
-                size={14}
-                fill="currentColor"
-              />{" "}
-              {listing.rating} ·{" "}
-              {listing.reviews} reviews
+              <MapPin size={15} /> {listing.propertyType} in{" "}
+              {listing.location} · <Star size={14} fill="currentColor" />{" "}
+              {listing.rating} · {listing.reviews} reviews
             </div>
           </div>
 
           <div className="heading-actions">
-            <button
-              type="button"
-              onClick={() =>
-                openPanel("share")
-              }
-            >
+            <button type="button" onClick={() => openPanel("share")}>
               <Share size={17} /> Share
             </button>
 
             <button
               type="button"
               aria-pressed={saved}
-              onClick={() =>
-                setSaved(!saved)
-              }
+              onClick={() => setSaved(!saved)}
             >
-              <Heart
-                size={17}
-                fill={
-                  saved
-                    ? "currentColor"
-                    : "none"
-                }
-              />{" "}
+              <Heart size={17} fill={saved ? "currentColor" : "none"} />{" "}
               {saved ? "Saved" : "Save"}
             </button>
           </div>
         </div>
 
         <div id="photos">
-          <Gallery
-            open={(index) =>
-              openLightbox(index)
-            }
-            tour={openTour}
-          />
+          <Gallery open={(index) => openLightbox(index)} tour={openTour} />
         </div>
 
-        <PhotoTourSection
-          openLightbox={openLightbox}
-        />
+        <PhotoTourSection openLightbox={openLightbox} />
 
         <div className="content-layout">
-          <Details
-            onPanel={openPanel}
-          />
+          <Details onPanel={openPanel} />
 
-          <LowerSections
-            onPanel={openPanel}
-          />
+          <LowerSections onPanel={openPanel} />
 
           <ReservationCard
             onPanel={openPanel}
@@ -1893,9 +1412,7 @@ export default function ListingExperience() {
         </div>
       </main>
 
-      <footer className="site-footer">
-        © 2025 Airbnb clone recreation
-      </footer>
+      <footer className="site-footer">© 2026 Airbnb clone recreation</footer>
 
       {overlay && (
         <GalleryDialog
@@ -1908,52 +1425,14 @@ export default function ListingExperience() {
       )}
 
       {panel && (
-        <Panel
+        <ActionPanel
           panel={panel}
           close={closePanel}
+          guests={guests}
           setGuests={setGuests}
-          onReserve={() =>
-            setConfirmed(true)
-          }
+          onReserve={() => setConfirmed(true)}
         />
       )}
     </>
   );
 }
-```
-
-### What was fixed
-
-The original error was caused by this:
-
-```tsx
-<StickyNav onPanel={openPanel} />
-```
-
-It is now:
-
-```tsx
-<StickyNav
-  onPanel={openPanel}
-  onPhotos={openPhotos}
-/>
-```
-
-And this function was added:
-
-```tsx
-const openPhotos = () => {
-  const photosSection =
-    document.getElementById("photos-section");
-
-  if (photosSection) {
-    photosSection.scrollIntoView({
-      behavior: "smooth",
-      block: "start",
-    });
-  }
-
-  window.dispatchEvent(
-    new Event("open-photo-tour-section")
-  );
-};
