@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+  <rect width="1200" height="760" fill="#f8faf9"/>
+  <style>text{font-family:Arial,sans-serif;fill:#21302a} .title{font-size:28px;font-weight:700}.label{font-size:15px;font-weight:700}.small{font-size:13px}</style>
+  <text x="60" y="58" class="title">Production vacation-rental marketplace</text>
+  <g fill="#ffffff" stroke="#aec6b8" stroke-width="2">
+    <rect x="60" y="100" width="190" height="55" rx="10"/><rect x="330" y="100" width="190" height="55" rx="10"/><rect x="600" y="100" width="240" height="55" rx="10"/>
+    <rect x="70" y="230" width="200" height="80" rx="10"/><rect x="315" y="230" width="200" height="80" rx="10"/><rect x="560" y="230" width="200" height="80" rx="10"/><rect x="805" y="230" width="200" height="80" rx="10"/>
+    <rect x="70" y="390" width="200" height="70" rx="10"/><rect x="315" y="390" width="200" height="70" rx="10"/><rect x="560" y="390" width="200" height="70" rx="10"/><rect x="805" y="390" width="200" height="70" rx="10"/>
+    <rect x="160" y="540" width="220" height="70" rx="10"/><rect x="490" y="540" width="220" height="70" rx="10"/><rect x="820" y="540" width="220" height="70" rx="10"/>
+  </g>
+  <g text-anchor="middle"><text x="155" y="133" class="label">Guest / host browser</text><text x="425" y="133" class="label">DNS</text><text x="720" y="133" class="label">CDN / Edge / WAF</text>
+  <text x="170" y="264" class="label">Next.js frontend</text><text x="170" y="286" class="small">horizontal scaling</text><text x="415" y="264" class="label">API gateway</text><text x="415" y="286" class="small">rate limiting</text><text x="660" y="264" class="label">Listing service</text><text x="660" y="286" class="small">read-heavy domain</text><text x="905" y="264" class="label">Booking service</text><text x="905" y="286" class="small">transactional writes</text>
+  <text x="170" y="424" class="label">User service</text><text x="415" y="424" class="label">Redis cache</text><text x="660" y="424" class="label">PostgreSQL</text><text x="905" y="424" class="label">Search engine</text>
+  <text x="270" y="574" class="label">Object storage</text><text x="270" y="596" class="small">original images</text><text x="600" y="574" class="label">Image CDN</text><text x="600" y="596" class="small">resized delivery</text><text x="930" y="574" class="label">Queue + workers</text><text x="930" y="596" class="small">notifications and indexing</text></g>
+  <g stroke="#4f7964" stroke-width="2" fill="none" marker-end="url(#arrow)"><path d="M250 128h80"/><path d="M520 128h80"/><path d="M720 155v55"/><path d="M425 155v55"/><path d="M170 310v80"/><path d="M415 310v80"/><path d="M660 310v80"/><path d="M905 310v80"/><path d="M660 460v80"/><path d="M270 460v80"/><path d="M600 460v80"/><path d="M905 460v80"/></g>
+  <defs><marker id="arrow" markerWidth="8" markerHeight="8" refX="7" refY="3" orient="auto"><path d="M0,0 L0,6 L7,3 z" fill="#4f7964"/></marker></defs>
+</svg>
